@@ -39,20 +39,23 @@ Access: http://localhost:8000/docs
 | DELETE | `/org/delete` | Delete organization | JWT |
 | POST | `/admin/login` | Get JWT token | No |
 
-## Architecture
+## Architecture Review
 
-**Collection-per-Tenant Model:**
-- Master DB stores org metadata and admin credentials
-- Each org gets its own MongoDB collection (`org_name`)
-- Good isolation, scales to 1000+ organizations
+### Is this Scalable?
+**Yes, but with limits.** The current **Collection-per-Tenant** strategy (separate collection for each org) is excellent for Data Isolation and Security but hits a ceiling.
+*   **Scalability**: Good for **100s to ~10,000 tenants**. Beyond this, MongoDB namespace limits and overhead effectively slow down the cluster.
+*   **Performance**: Extremely fast for single-tenant queries as data is physically separated.
 
-**Trade-offs:**
-- ✅ Simple, secure, easy backups
-- ⚠️ Limited to ~10k orgs per database
+### Trade-offs & Analysis
+| Strategy | Pros | Cons |
+| :--- | :--- | :--- |
+| **Current (Collection/Tenant)** | ✅ Zero data leaks (hard isolation)<br>✅ Easy per-tenant backup/restore | ⚠️ **Schema Migrations**: Must iterate 1000s of collections to update fields.<br>⚠️ **Resource Overhead**: High memory usage per collection at scale. |
 
-**Alternatives considered:**
-- Database-per-tenant: Better isolation but complex
-- Shared collection: Simpler but security risks
+### Recommendation for Massive Scale
+If building for **100k+ organizations** (SaaS scale), a **Pooled/Shared Collection** design is "better":
+1.  **Shared Collection**: All data lives in one collection with an indexed `org_id` field.
+2.  **Why?**: Infinite scalability, instant schema changes, efficient indexing.
+3.  **Risk**: Requires strict code-level filtering to prevent data cross-contamination.
 
 ## Testing
 
